@@ -1,8 +1,13 @@
+
 from flask import Flask, request, jsonify
 import logging
 from telegram import Update
-from telegram.ext import CommandHandler, MessageHandler, CallbackContext, ApplicationBuilder
-from telegram.ext import filters  # Updated import for filters
+from telegram.ext import CommandHandler, MessageHandler, CallbackContext, ApplicationBuilder, filters
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -11,8 +16,8 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize your bot with the token
-TOKEN = '7565757922:AAHTCgAKxFYxl495Rr8l-ROr4W5BVdyiNkk'
+# Retrieve the Telegram bot token from the environment variable
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 application = ApplicationBuilder().token(TOKEN).build()
 
 # Command handler for /start
@@ -27,10 +32,20 @@ async def stop(update: Update, context: CallbackContext):
 async def echo(update: Update, context: CallbackContext):
     await update.message.reply_text(update.message.text)
 
+# Handler for my_chat_member updates
+async def my_chat_member(update: Update, context: CallbackContext):
+    logger.info(f"Chat member update: {update.my_chat_member}")
+    if update.my_chat_member.new_chat_member.status == "kicked":
+        await context.bot.send_message(
+            chat_id=update.my_chat_member.chat.id,
+            text=f"The bot {update.my_chat_member.new_chat_member.user.first_name} has been kicked."
+        )
+
 # Add handlers to the application
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))  # Updated filters usage
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+application.add_handler(MessageHandler(filters.StatusUpdate.MY_CHAT_MEMBER, my_chat_member))
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
