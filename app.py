@@ -11,6 +11,7 @@ from telegram.ext import (
 )
 from dotenv import load_dotenv
 import os
+import asyncio  # Import asyncio to handle async functions properly
 
 # Load environment variables from .env file
 load_dotenv()
@@ -51,7 +52,7 @@ async def my_chat_member(update: Update, context: CallbackContext):
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-application.add_handler(ChatMemberHandler(my_chat_member))  # ✅ Fixed handler
+application.add_handler(ChatMemberHandler(my_chat_member))  # ✅ Corrected chat member update handler
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -65,7 +66,9 @@ def webhook():
             return jsonify({'error': 'Invalid JSON data'}), 400
 
         update = Update.de_json(json_data, application.bot)
-        application.process_update(update)
+        
+        # ✅ Fix: Run process_update asynchronously
+        asyncio.create_task(application.process_update(update))
 
         return 'OK', 200
 
