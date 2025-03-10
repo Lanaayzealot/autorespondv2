@@ -31,7 +31,7 @@ async def auto_respond(update: Update, context: CallbackContext) -> None:
     if not update.message:  # Ensure it's a valid message update
         return
 
-    # Just respond to every user (remove user_id check)
+    # Respond to all users, including those testing the bot
     await update.message.reply_text("Hi. I am currently AFK, I'll get back to you as soon as I can. Respectfully, Lana")
 
 # Register handlers
@@ -59,7 +59,7 @@ async def webhook():
         if not bot._initialized:
             await bot.initialize()
 
-        await bot.process_update(update)  # Process the update
+        await bot.process_update(update)  # Process the update asynchronously
 
         return 'OK', 200
 
@@ -78,18 +78,10 @@ def run_flask():
 async def main():
     """Initialize the bot and set the webhook."""
     await bot.initialize()  # Ensure bot is initialized
-    await set_webhook()
+    await set_webhook()  # Set the webhook
 
-# Entry point to run the application
+    # Run Flask app
+    run_flask()
+
 if __name__ == '__main__':
-    # Run the Flask app and the Telegram bot in the same event loop
-    loop = asyncio.get_event_loop()
-
-    # Create a task for the main coroutine (initializes the bot and sets the webhook)
-    loop.create_task(main())
-
-    # Run Flask using a separate thread so it won't block the asyncio event loop
-    loop.run_in_executor(None, run_flask)
-
-    # Keep the event loop running
-    loop.run_forever()
+    asyncio.run(main())  # Start the bot and webhook handler
