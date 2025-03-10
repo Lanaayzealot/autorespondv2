@@ -1,7 +1,8 @@
 from flask import Flask, request, jsonify
 import logging
 from telegram import Update
-from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext, ApplicationBuilder
+from telegram.ext import CommandHandler, MessageHandler, CallbackContext, ApplicationBuilder
+from telegram.ext import filters  # Updated import for filters
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -11,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize your bot with the token
-TOKEN ='7565757922:AAHTCgAKxFYxl495Rr8l-ROr4W5BVdyiNkk'
+TOKEN = '7565757922:AAHTCgAKxFYxl495Rr8l-ROr4W5BVdyiNkk'
 application = ApplicationBuilder().token(TOKEN).build()
 
 # Command handler for /start
@@ -29,7 +30,7 @@ async def echo(update: Update, context: CallbackContext):
 # Add handlers to the application
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
-application.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))  # Updated filters usage
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
