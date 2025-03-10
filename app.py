@@ -82,7 +82,14 @@ async def main():
 
 # Entry point to run the application
 if __name__ == '__main__':
-    # Run the Flask app in a separate thread
+    # Run the Flask app and the Telegram bot in the same event loop
     loop = asyncio.get_event_loop()
+
+    # Create a task for the main coroutine (initializes the bot and sets the webhook)
     loop.create_task(main())
-    run_flask()
+
+    # Run Flask using a separate thread so it won't block the asyncio event loop
+    loop.run_in_executor(None, run_flask)
+
+    # Keep the event loop running
+    loop.run_forever()
