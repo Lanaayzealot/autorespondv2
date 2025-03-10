@@ -48,23 +48,23 @@ def home():
     return "Telegram bot is running."
 
 @app.route('/webhook', methods=['POST'])
-def webhook():
+async def webhook():
     """Handles incoming webhook requests from Telegram."""
     try:
         json_data = request.get_json()
+        logger.info(f"Incoming Update: {json_data}")  # Log incoming updates
+
         if not json_data:
             raise ValueError("Invalid JSON data")
-
-        logger.info(f"Incoming Update: {json_data}")  # Log incoming updates
 
         update = Update.de_json(json_data, bot.bot)
 
         # Ensure bot is initialized before processing updates
         if not bot._initialized:
-            bot.initialize()
+            await bot.initialize()
 
-        logger.info(f"Processing update for user {update.message.from_user.id}")  # Log processing
-        bot.process_update(update)  # Process the update synchronously
+        # Process the update asynchronously
+        await bot.process_update(update)  # Ensure this is awaited
 
         return 'OK', 200
 
