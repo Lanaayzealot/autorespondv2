@@ -44,7 +44,7 @@ def home():
     return "Telegram bot is running."
 
 @app.route('/webhook', methods=['POST'])
-def webhook():
+async def webhook():
     """Handles incoming webhook requests from Telegram."""
     try:
         json_data = request.get_json()
@@ -54,9 +54,13 @@ def webhook():
             raise ValueError("Invalid JSON data")
 
         update = Update.de_json(json_data, bot.bot)
-        
-        asyncio.run(bot.process_update(update))  # Process update in sync Flask route
-        
+
+        # Ensure bot is initialized before processing updates
+        if not bot._initialized:
+            await bot.initialize()
+
+        await bot.process_update(update)  # Process the update
+
         return 'OK', 200
 
     except Exception as e:
