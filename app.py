@@ -1,10 +1,11 @@
 import os
-import asyncio
 import logging
+import threading
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+import asyncio
 
 # Load environment variables
 load_dotenv()
@@ -27,11 +28,8 @@ async def start(update: Update, context: CallbackContext) -> None:
 
 async def auto_respond(update: Update, context: CallbackContext) -> None:
     """Auto-responds to any text message from users."""
-    
     if not update.message:  # Ensure it's a valid message update
         return
-
-    # Respond to all users, including those testing the bot
     await update.message.reply_text("Hi. I am currently AFK, I'll get back to you as soon as I can. Respectfully, Lana")
 
 # Register handlers
@@ -80,8 +78,9 @@ async def main():
     await bot.initialize()  # Ensure bot is initialized
     await set_webhook()  # Set the webhook
 
-    # Run Flask app
-    run_flask()
+    # Run Flask app in a separate thread to avoid blocking the event loop
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.start()
 
 if __name__ == '__main__':
     asyncio.run(main())  # Start the bot and webhook handler
