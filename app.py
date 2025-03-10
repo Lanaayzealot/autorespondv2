@@ -58,18 +58,13 @@ async def webhook():
 
     return 'OK', 200
 
-async def set_webhook():
-    """Sets the webhook for the Telegram bot."""
-    # You can set the webhook here if needed
-    pass
-
 def run_flask():
     """Runs Flask app."""
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
 
 async def main():
-    """Initialize the bot and set the webhook."""
-    await bot.initialize()
+    """Initialize the bot and run the Flask app."""
+    await bot.initialize()  # Ensure the bot is initialized
     run_flask()
 
 if __name__ == '__main__':
