@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize your bot with the token
-TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
+TOKEN = 7565757922:AAHTCgAKxFYxl495Rr8l-ROr4W5BVdyiNkk
 application = ApplicationBuilder().token(TOKEN).build()
 
 # Command handler for /start
