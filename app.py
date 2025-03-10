@@ -27,12 +27,15 @@ async def start(update: Update, context: CallbackContext) -> None:
 
 async def auto_respond(update: Update, context: CallbackContext) -> None:
     """Auto-responds to any text message from users."""
+    
+    # Get sender ID and bot's own ID
     user_id = update.message.from_user.id
-    bot_id = (await bot.bot.get_me()).id  # Fetch bot's own ID
+    bot_id = bot.bot.id  # Correct way to fetch bot's ID
 
     # Ensure the bot does not respond to itself
     if user_id != bot_id:
         await update.message.reply_text("Hi. I am currently AFK, I'll get back to you as soon as I can. Respectfully, Lana")
+
 
 # Register handlers
 bot.add_handler(CommandHandler("start", start))
