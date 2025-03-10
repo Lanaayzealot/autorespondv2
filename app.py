@@ -31,8 +31,8 @@ async def auto_respond(update: Update, context: CallbackContext) -> None:
     if not update.message:  # Ensure it's a valid message update
         return
 
-    user_id = update.message.from_user.id  # Sender's ID
-    bot_id = bot.bot.id  # Bot's own ID
+    user_id = update.message.from_user.id  
+    bot_id = context.application.bot_data.get("bot_id")  # Fetch stored bot ID
 
     # Ensure the bot does not respond to itself
     if user_id != bot_id:
@@ -81,8 +81,9 @@ def run_flask():
 
 async def main():
     """Initialize the bot, set webhook, and start Flask."""
-    await bot.initialize()  # Ensure bot is initialized
-    await set_webhook()  # Set webhook
+    await bot.initialize()
+    bot.bot_data["bot_id"] = bot.bot.id  # Store bot ID once
+    await set_webhook()
 
     # Run Flask in a separate thread to avoid blocking the event loop
     loop = asyncio.get_running_loop()
@@ -90,3 +91,6 @@ async def main():
 
     # Keep the bot running
     await bot.run_polling()
+
+if __name__ == '__main__':
+    asyncio.run(main())  # Run the bot in an event loop
