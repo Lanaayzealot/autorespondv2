@@ -80,6 +80,13 @@ def run_flask():
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
 
 async def main():
-    """Initialize the bot and set the webhook."""
+    """Initialize the bot, set webhook, and start Flask."""
     await bot.initialize()  # Ensure bot is initialized
-    await set_web
+    await set_webhook()  # Set webhook
+
+    # Run Flask in a separate thread to avoid blocking the event loop
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(None, run_flask)
+
+    # Keep the bot running
+    await bot.run_polling()
