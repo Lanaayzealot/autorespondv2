@@ -44,7 +44,7 @@ async def my_chat_member(update: Update, context: CallbackContext):
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-application.add_handler(MessageHandler(filters.ChatMemberUpdated, my_chat_member))
+application.add_handler(MessageHandler(filters.ChatMember, my_chat_member))
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
