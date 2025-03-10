@@ -1,7 +1,14 @@
 from flask import Flask, request, jsonify
 import logging
 from telegram import Update
-from telegram.ext import CommandHandler, MessageHandler, CallbackContext, ApplicationBuilder, filters
+from telegram.ext import (
+    CommandHandler,
+    MessageHandler,
+    CallbackContext,
+    ApplicationBuilder,
+    ChatMemberHandler,
+    filters
+)
 from dotenv import load_dotenv
 import os
 
@@ -44,7 +51,7 @@ async def my_chat_member(update: Update, context: CallbackContext):
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-application.add_handler(MessageHandler(filters.ChatMember, my_chat_member))
+application.add_handler(ChatMemberHandler(my_chat_member))  # ✅ Fixed handler
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
