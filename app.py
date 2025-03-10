@@ -2,7 +2,7 @@ import os
 import asyncio
 import logging
 from dotenv import load_dotenv
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 
@@ -65,7 +65,7 @@ async def webhook():
 
     except Exception as e:
         logger.error(f"Error in Webhook: {e}", exc_info=True)
-        return 'Internal Server Error', 500
+        return jsonify({'error': str(e)}), 500
 
 async def set_webhook():
     """Sets the webhook for the Telegram bot."""
