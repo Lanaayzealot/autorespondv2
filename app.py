@@ -33,19 +33,18 @@ async def echo(update: Update, context: CallbackContext):
 
 # Handler for chat member updates
 async def my_chat_member(update: Update, context: CallbackContext):
-    if update.chat_member:
-        logger.info(f"Chat member update: {update.chat_member}")
-        if update.chat_member.new_chat_member.status == "kicked":
-            await context.bot.send_message(
-                chat_id=update.chat_member.chat.id,
-                text=f"The bot {update.chat_member.new_chat_member.user.first_name} has been kicked."
-            )
+    logger.info(f"Chat member update: {update.chat_member}")
+    if update.chat_member.new_chat_member.status == "kicked":
+        await context.bot.send_message(
+            chat_id=update.chat_member.chat.id,
+            text=f"The bot {update.chat_member.new_chat_member.user.first_name} has been kicked."
+        )
 
 # Add handlers to the application
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-application.add_handler(MessageHandler(filters.StatusUpdate.CHAT_MEMBER, my_chat_member))
+application.add_handler(MessageHandler(filters.ChatMemberUpdated, my_chat_member))
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
