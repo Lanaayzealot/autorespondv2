@@ -26,12 +26,12 @@ async def start(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text('Hello! I am your auto-responder bot.')
 
 async def auto_respond(update: Update, context: CallbackContext) -> None:
-    """Auto-responds to any text message from users mentioning 'Lana'."""
+    """Auto-responds to any text message from users."""
     user_id = update.message.from_user.id
-    message_text = update.message.text.lower()
-    
-    # Ensure bot responds only when 'Lana' is mentioned and not to the user 'Lana' themselves
-    if 'lana' in message_text and user_id != bot.bot.id:  # The bot does not respond to itself
+    bot_id = (await bot.bot.get_me()).id  # Fetch bot's own ID
+
+    # Ensure the bot does not respond to itself
+    if user_id != bot_id:
         await update.message.reply_text("Hi. I am currently AFK, I'll get back to you as soon as I can. Respectfully, Lana")
 
 # Register handlers
@@ -44,7 +44,7 @@ def home():
     return "Telegram bot is running."
 
 @app.route('/webhook', methods=['POST'])
-async def webhook():
+def webhook():
     """Handles incoming webhook requests from Telegram."""
     try:
         json_data = request.get_json()
@@ -54,13 +54,9 @@ async def webhook():
             raise ValueError("Invalid JSON data")
 
         update = Update.de_json(json_data, bot.bot)
-
-        # Ensure bot is initialized before processing updates
-        if not bot._initialized:
-            await bot.initialize()
-
-        await bot.process_update(update)  # Process the update
-
+        
+        asyncio.run(bot.process_update(update))  # Process update in sync Flask route
+        
         return 'OK', 200
 
     except Exception as e:
@@ -73,21 +69,9 @@ async def set_webhook():
 
 def run_flask():
     """Runs Flask in a separate thread to avoid event loop conflicts."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
 
 async def main():
-    """Initialize the bot, set webhook, and start Flask."""
+    """Initialize the bot and set the webhook."""
     await bot.initialize()  # Ensure bot is initialized
-    await set_webhook()  # Set webhook
-
-    # Run Flask in a separate thread to avoid blocking the event loop
-    loop = asyncio.get_running_loop()
-    loop.run_in_executor(None, run_flask)
-
-    # Keep the bot running
-    await bot.run_polling()
-
-if __name__ == '__main__':
-    asyncio.run(main())  # Run the bot in an event loop
+    await set_web
