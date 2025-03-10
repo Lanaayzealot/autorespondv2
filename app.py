@@ -31,8 +31,8 @@ async def auto_respond(update: Update, context: CallbackContext) -> None:
     if not update.message:  # Ensure it's a valid message update
         return
 
-    user_id = update.message.from_user.id  
-    bot_id = context.application.bot_data.get("bot_id")  # Fetch stored bot ID
+    user_id = update.message.from_user.id  # Sender's ID
+    bot_id = bot.bot.id  # Bot's own ID
 
     # Ensure the bot does not respond to itself
     if user_id != bot_id:
@@ -48,22 +48,23 @@ def home():
     return "Telegram bot is running."
 
 @app.route('/webhook', methods=['POST'])
-async def webhook():
+def webhook():
     """Handles incoming webhook requests from Telegram."""
     try:
         json_data = request.get_json()
-        logger.info(f"Incoming Update: {json_data}")  # Log incoming updates
-
         if not json_data:
             raise ValueError("Invalid JSON data")
+
+        logger.info(f"Incoming Update: {json_data}")  # Log incoming updates
 
         update = Update.de_json(json_data, bot.bot)
 
         # Ensure bot is initialized before processing updates
         if not bot._initialized:
-            await bot.initialize()
+            bot.initialize()
 
-        await bot.process_update(update)  # Process the update
+        logger.info(f"Processing update for user {update.message.from_user.id}")  # Log processing
+        bot.process_update(update)  # Process the update synchronously
 
         return 'OK', 200
 
@@ -80,10 +81,9 @@ def run_flask():
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
 
 async def main():
-    """Initialize the bot, set webhook, and start Flask."""
-    await bot.initialize()
-    bot.bot_data["bot_id"] = bot.bot.id  # Store bot ID once
-    await set_webhook()
+    """Initialize the bot and set the webhook."""
+    await bot.initialize()  # Ensure bot is initialized
+    await set_webhook()  # Set webhook
 
     # Run Flask in a separate thread to avoid blocking the event loop
     loop = asyncio.get_running_loop()
