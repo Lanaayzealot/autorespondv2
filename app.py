@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 import logging
 import os
-import asyncio  # <-- Import asyncio
+import asyncio  # <-- Make sure asyncio is imported
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackContext, filters
 
