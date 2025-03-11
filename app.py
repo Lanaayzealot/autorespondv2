@@ -6,8 +6,10 @@ from telegram.ext import CommandHandler, MessageHandler, CallbackContext, Applic
 from dotenv import load_dotenv
 import os
 
-# Load environment variables from .env file
-load_dotenv()
+import os
+
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+OWNER_ID = int(os.getenv('TELEGRAM_OWNER_ID', 0))  # Default to 0 if missing
 
 # Initialize Flask app
 app = Flask(__name__)
