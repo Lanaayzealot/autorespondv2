@@ -16,28 +16,50 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Retrieve the Telegram bot token from the environment variable
+# Retrieve the Telegram bot token and owner ID from environment variables
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+OWNER_ID = int(os.getenv('TELEGRAM_OWNER_ID'))  # Your Telegram user ID
+
 application = ApplicationBuilder().token(TOKEN).build()
 
-# Command handler for /start
+# Global variable to track bot state
+bot_running = False
+
+# Start command
 async def start(update: Update, context: CallbackContext):
-    await update.message.reply_text("Hello, I will be responding instead of you when you are away!")
+    global bot_running
+    bot_running = True
+    await update.message.reply_text("Auto-reply bot is now active!")
 
-# Command handler for /stop
+# Stop command
 async def stop(update: Update, context: CallbackContext):
-    await update.message.reply_text("Hello, I am glad you're back!")
+    global bot_running
+    bot_running = False
+    await update.message.reply_text("Auto-reply bot has been stopped.")
 
-# Echo handler for text messages
-async def echo(update: Update, context: CallbackContext):
-    await update.message.reply_text(update.message.text)
+# Message handler for forwarding and responding
+async def forward_and_reply(update: Update, context: CallbackContext):
+    global bot_running
+    if not bot_running:
+        return  # Ignore messages if the bot is stopped
 
-# Add handlers to the application
+    user_id = update.message.from_user.id
+    user_name = update.message.from_user.username or update.message.from_user.first_name
+    text = update.message.text
+
+    # Forward the message to the bot owner
+    forward_text = f"📩 New message from @{user_name} ({user_id}):\n{text}"
+    await context.bot.send_message(chat_id=OWNER_ID, text=forward_text)
+
+    # Reply to the original sender with the away message
+    await update.message.reply_text("Hi, I am away at the moment, I will get back to you ASAP.")
+
+# Add handlers
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, forward_and_reply))
 
-# Ensure there's an active event loop
+# Ensure an active event loop
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 
@@ -55,10 +77,10 @@ def webhook():
         update = Update.de_json(json_data, application.bot)
         
         async def process_update():
-            await application.initialize()  # ✅ Ensure proper initialization
+            await application.initialize()  # Ensure proper initialization
             await application.process_update(update)
 
-        loop.run_until_complete(process_update())  # ✅ Run in existing loop
+        loop.run_until_complete(process_update())  # Run in existing loop
 
         return 'OK', 200
 
