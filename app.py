@@ -1,12 +1,11 @@
 from flask import Flask, request, jsonify
 import logging
-import asyncio
 import os
 from telegram import Update
-from telegram.ext import CommandHandler, MessageHandler, CallbackContext, ApplicationBuilder, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackContext, filters
 
 # Retrieve environment variables
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')  # Bot Token
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 OWNER_ID = int(os.getenv('TELEGRAM_OWNER_ID', "0"))  # Default to "0" to prevent NoneType errors
 
 # Initialize Flask app
@@ -22,13 +21,13 @@ application = ApplicationBuilder().token(TOKEN).build()
 # Global bot state
 bot_running = False
 
-# Start command handler
+# Start command
 async def start(update: Update, context: CallbackContext):
     global bot_running
     bot_running = True
     await update.message.reply_text("Auto-reply bot is now active!")
 
-# Stop command handler
+# Stop command
 async def stop(update: Update, context: CallbackContext):
     global bot_running
     bot_running = False
@@ -51,38 +50,35 @@ async def forward_and_reply(update: Update, context: CallbackContext):
     # Reply to the sender with the away message
     await update.message.reply_text("Hi, I am away at the moment, I will get back to you ASAP.")
 
-# Add handlers for start, stop, and forwarding/replying
+# Add handlers
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, forward_and_reply))
 
-# Webhook route to handle incoming requests from Telegram
+# Route for root URL
+@app.route('/')
+def index():
+    return "Bot is running!", 200
+
+# Webhook route
 @app.route('/webhook', methods=['POST'])
 def webhook():
     """Handles incoming webhook requests from Telegram."""
-    try:
-        json_data = request.get_json()
-        logger.info(f"Received webhook request: {json_data}")  # Log incoming data
+    json_data = request.get_json()
+    logger.info(f"Received webhook request: {json_data}")
 
-        if not json_data:
-            logger.error("Invalid JSON data received.")
-            return jsonify({'error': 'Invalid JSON data'}), 400
+    if not json_data:
+        return jsonify({'error': 'Invalid JSON data'}), 400
 
-        update = Update.de_json(json_data, application.bot)
+    update = Update.de_json(json_data, application.bot)
 
-        # Process update in async function
-        async def process_update():
-            await application.initialize()  # Ensure proper initialization
-            await application.process_update(update)
+    async def process_update():
+        await application.initialize()
+        await application.process_update(update)
 
-        asyncio.ensure_future(process_update())  # Non-blocking execution
+    asyncio.ensure_future(process_update())  # Non-blocking execution
 
-        return 'OK', 200
+    return 'OK', 200
 
-    except Exception as e:
-        logger.error(f"Error processing update: {e}")
-        return jsonify({'error': 'Internal Server Error'}), 500
-
-# Main entry point for Flask
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
