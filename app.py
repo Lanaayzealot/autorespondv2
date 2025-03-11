@@ -7,7 +7,8 @@ from telegram.ext import (
     CallbackContext,
     ApplicationBuilder,
     ChatMemberHandler,
-    filters
+    filters,
+    Application
 )
 from dotenv import load_dotenv
 import os
@@ -30,11 +31,8 @@ if not TOKEN:
     logger.error("TELEGRAM_BOT_TOKEN not found in environment variables.")
     exit(1)  # Exit if the token isn't found
 
-# --- Telegram Bot Application ---
-#  Initialize the application *outside* the webhook function.
-application = ApplicationBuilder().token(TOKEN).build()
-
 # --- Telegram Bot Handlers ---
+# Define handlers *before* creating the Application.
 
 async def start(update: Update, context: CallbackContext):
     """Handles the /start command."""
@@ -57,8 +55,12 @@ async def my_chat_member(update: Update, context: CallbackContext):
             text=f"The bot {update.chat_member.new_chat_member.user.first_name} has been kicked."
         )
 
+# --- Application Initialization (Outside of Webhook) ---
+# We create the Application *once* here.
+application: Application = ApplicationBuilder().token(TOKEN).build()
+
 # --- Register Handlers ---
-# It's cleaner to register handlers *before* defining the webhook.
+# Register handlers *before* initializing.
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
@@ -79,34 +81,41 @@ async def webhook():
 
         update = Update.de_json(json_data, application.bot)
 
-        # Use await directly to process the update.
+        # Process the update.  The application is already initialized.
         await application.process_update(update)
 
         return 'OK', 200  # Acknowledge receipt to Telegram
 
     except Exception as e:
         logger.exception("Error processing update:")  # Log the full traceback
-        return jsonify({'error': 'Internal Server Error'}), 500  # Return a 500 error
+        return jsonify({'error': 'Internal Server Error'}), 500
 
+# --- Startup and Shutdown Hooks (VERY IMPORTANT) ---
+
+@app.before_first_request
+async def startup_event():
+    """Initializes the Telegram bot application before handling the first request."""
+    logger.info("Initializing Telegram application...")
+    await application.initialize()
+    # Set the webhook URL *here*, after initialization.  This ensures
+    # the bot is ready to receive updates.
+    webhook_url = f'{os.getenv("RENDER_EXTERNAL_URL")}/webhook'  # Use Render's URL
+    await application.bot.set_webhook(url=webhook_url)
+    logger.info(f"Webhook set to: {webhook_url}")
+
+@app.after_request
+async def after_request_callback(response):
+    """Ensures all background tasks are finished before returning the response."""
+    await application.update_queue.join()
+    return response
+
+@app.teardown_appcontext
+async def shutdown_event(exception=None):
+    """Shuts down the Telegram bot application when the Flask app shuts down."""
+    logger.info("Shutting down Telegram application...")
+    await application.shutdown()
 
 # --- Run the App (for development) ---
 if __name__ == '__main__':
-    #  For development only! Use Gunicorn or uWSGI in production.
-    app.run(host='0.0.0.0', port=10000, debug=False) #debug should be false
-
-    # --- Example of how to set the webhook (IMPORTANT!) ---
-    #   You'll need to run this *once* (or whenever your server's
-    #   public URL changes).  You can do this in a separate script,
-    #   or you can uncomment the lines below and run this script *once*.
-    #   Replace 'YOUR_SERVER_ADDRESS' with your actual server address.
-    #
-    # async def set_webhook_url():
-    #     bot = Bot(TOKEN)
-    #     webhook_url = f'https://YOUR_SERVER_ADDRESS/webhook'  # Your server's URL
-    #     result = await bot.set_webhook(url=webhook_url)
-    #     if result:
-    #         print(f"Webhook set successfully to {webhook_url}")
-    #     else:
-    #         print("Failed to set webhook.")
-    #
-    # asyncio.run(set_webhook_url())
+    # For development only! Use Gunicorn or uWSGI in production.
+    app.run(host='0.0.0.0', port=10000, debug=False)
