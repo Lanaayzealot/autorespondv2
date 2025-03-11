@@ -32,20 +32,14 @@ async def stop(update: Update, context: CallbackContext):
 async def echo(update: Update, context: CallbackContext):
     await update.message.reply_text(update.message.text)
 
-# Handler for chat member updates
-async def my_chat_member(update: Update, context: CallbackContext):
-    logger.info(f"Chat member update: {update.chat_member}")
-    if update.chat_member.new_chat_member.status == "kicked":
-        await context.bot.send_message(
-            chat_id=update.chat_member.chat.id,
-            text=f"The bot {update.chat_member.new_chat_member.user.first_name} has been kicked."
-        )
-
 # Add handlers to the application
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-application.add_handler(MessageHandler(filters.StatusUpdate.ALL, my_chat_member))  # ✅ FIXED
+
+# Ensure there's an active event loop
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -64,12 +58,7 @@ def webhook():
             await application.initialize()  # ✅ Ensure proper initialization
             await application.process_update(update)
 
-        # ✅ Fix: Ensure an event loop is running
-        try:
-            loop = asyncio.get_running_loop()
-            task = loop.create_task(process_update())  # Run as a background task
-        except RuntimeError:
-            asyncio.run(process_update())  # Run synchronously if no event loop exists
+        loop.run_until_complete(process_update())  # ✅ Run in existing loop
 
         return 'OK', 200
 
@@ -78,5 +67,5 @@ def webhook():
         return jsonify({'error': 'Internal Server Error'}), 500
 
 if __name__ == '__main__':
-    # Start the Flask app on port 10000
+    # Start the Flask app
     app.run(host='0.0.0.0', port=10000)
