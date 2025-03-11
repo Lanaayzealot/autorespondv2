@@ -53,7 +53,7 @@ async def my_chat_member(update: Update, context: CallbackContext):
             text=f"The bot {update.chat_member.new_chat_member.user.first_name} has been kicked."
         )
 
-# --- Application Initialization (Outside of Webhook) ---
+# --- Application Initialization (Moved to a startup event) ---
 application: Application = ApplicationBuilder().token(TOKEN).build()
 
 # --- Register Handlers ---
@@ -61,7 +61,6 @@ application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 application.add_handler(ChatMemberHandler(my_chat_member))
-
 
 # --- Webhook Route ---
 @app.route('/webhook', methods=['POST'])
@@ -75,8 +74,13 @@ async def webhook():
             logger.error("Invalid JSON data received.")
             return jsonify({'error': 'Invalid JSON data'}), 400
 
-        update = Update.de_json(json_data, application.bot)
-        await application.process_update(update)
+        # Use a coroutine to process the update *after* initialization
+        async def process_update_coroutine():
+            update = Update.de_json(json_data, application.bot)
+            await application.process_update(update)
+
+        # Schedule the coroutine to run in the application's event loop
+        asyncio.create_task(process_update_coroutine())
         return 'OK', 200
 
     except Exception as e:
@@ -86,21 +90,17 @@ async def webhook():
 
 # --- Startup and Shutdown Hooks (CORRECTED) ---
 
-_first_request_lock = asyncio.Lock()  # Use an asyncio Lock
-_first_request_done = False
+@app.before_serving
+async def before_serving_func():
+    """Initializes the Telegram bot application *before* serving requests."""
+    logger.info("Initializing Telegram application...")
+    await application.initialize()
+    webhook_url = f'{os.getenv("RENDER_EXTERNAL_URL")}/webhook'
+    await application.bot.set_webhook(url=webhook_url)
+    logger.info(f"Webhook set to: {webhook_url}")
+    await application.start() # Start the application's background tasks
+    logger.info("Application started")
 
-@app.before_request
-async def before_request_func():
-    """Initializes the Telegram bot application before the *first* request."""
-    global _first_request_done
-    async with _first_request_lock:  # Acquire the lock
-        if not _first_request_done:
-            logger.info("Initializing Telegram application...")
-            await application.initialize()
-            webhook_url = f'{os.getenv("RENDER_EXTERNAL_URL")}/webhook'
-            await application.bot.set_webhook(url=webhook_url)
-            logger.info(f"Webhook set to: {webhook_url}")
-            _first_request_done = True  # Set the flag
 
 @app.after_request
 async def after_request_callback(response):
