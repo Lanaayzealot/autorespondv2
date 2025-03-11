@@ -6,12 +6,8 @@ from telegram import Update
 from telegram.ext import CommandHandler, MessageHandler, CallbackContext, ApplicationBuilder, filters
 
 # Retrieve environment variables
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')  # Bot Token
 OWNER_ID = int(os.getenv('TELEGRAM_OWNER_ID', "0"))  # Default to "0" to prevent NoneType errors
-
-# Validate required environment variables
-if not TOKEN or OWNER_ID == 0:
-    raise ValueError("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_OWNER_ID in environment variables.")
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -26,17 +22,17 @@ application = ApplicationBuilder().token(TOKEN).build()
 # Global bot state
 bot_running = False
 
-# Start command
+# Start command handler
 async def start(update: Update, context: CallbackContext):
     global bot_running
     bot_running = True
-    await update.message.reply_text("✅ Auto-reply bot is now active!")
+    await update.message.reply_text("Auto-reply bot is now active!")
 
-# Stop command
+# Stop command handler
 async def stop(update: Update, context: CallbackContext):
     global bot_running
     bot_running = False
-    await update.message.reply_text("🛑 Auto-reply bot has been stopped.")
+    await update.message.reply_text("Auto-reply bot has been stopped.")
 
 # Message handler for forwarding and replying
 async def forward_and_reply(update: Update, context: CallbackContext):
@@ -55,37 +51,38 @@ async def forward_and_reply(update: Update, context: CallbackContext):
     # Reply to the sender with the away message
     await update.message.reply_text("Hi, I am away at the moment, I will get back to you ASAP.")
 
-# Add handlers
+# Add handlers for start, stop, and forwarding/replying
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, forward_and_reply))
 
-# Webhook route
+# Webhook route to handle incoming requests from Telegram
 @app.route('/webhook', methods=['POST'])
 def webhook():
     """Handles incoming webhook requests from Telegram."""
     try:
         json_data = request.get_json()
-        logger.info(f"Incoming Update: {json_data}")
+        logger.info(f"Received webhook request: {json_data}")  # Log incoming data
 
         if not json_data:
-            logger.error("❌ Invalid JSON data received.")
+            logger.error("Invalid JSON data received.")
             return jsonify({'error': 'Invalid JSON data'}), 400
 
         update = Update.de_json(json_data, application.bot)
-        
+
+        # Process update in async function
         async def process_update():
-            await application.initialize()
+            await application.initialize()  # Ensure proper initialization
             await application.process_update(update)
 
-        asyncio.run(process_update())  # Blocking execution to handle the update
+        asyncio.ensure_future(process_update())  # Non-blocking execution
 
         return 'OK', 200
 
     except Exception as e:
-        logger.error(f"⚠️ Error processing update: {e}", exc_info=True)
-        return jsonify({'error': 'Internal Server Error', 'details': str(e)}), 500
+        logger.error(f"Error processing update: {e}")
+        return jsonify({'error': 'Internal Server Error'}), 500
 
+# Main entry point for Flask
 if __name__ == '__main__':
-    port = int(os.getenv("PORT", 10000))  # Default to 10000 if not set
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=10000)
