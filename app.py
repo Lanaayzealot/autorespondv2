@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 import logging
-from telegram import Update
+from telegram import Update, Bot
 from telegram.ext import (
     CommandHandler,
     MessageHandler,
@@ -11,35 +11,34 @@ from telegram.ext import (
 )
 from dotenv import load_dotenv
 import os
-import asyncio  # Import asyncio to handle async functions properly
+import asyncio
 
-# Load environment variables from .env file
 load_dotenv()
 
-# Initialize Flask app
 app = Flask(__name__)
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Retrieve the Telegram bot token from the environment variable
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+# Check if the token is loaded.  Good practice!
+if not TOKEN:
+    logger.error("TELEGRAM_BOT_TOKEN not found in environment variables.")
+    exit(1)  # Exit if the token isn't found
+
+# Use a global variable for the application.  This simplifies the webhook.
 application = ApplicationBuilder().token(TOKEN).build()
 
-# Command handler for /start
 async def start(update: Update, context: CallbackContext):
     await update.message.reply_text("Hello, I will be responding instead of you when you are away!")
 
-# Command handler for /stop
 async def stop(update: Update, context: CallbackContext):
     await update.message.reply_text("Hello, I am glad you're back!")
 
-# Echo handler for text messages
 async def echo(update: Update, context: CallbackContext):
     await update.message.reply_text(update.message.text)
 
-# Handler for chat member updates
 async def my_chat_member(update: Update, context: CallbackContext):
     logger.info(f"Chat member update: {update.chat_member}")
     if update.chat_member.new_chat_member.status == "kicked":
@@ -48,14 +47,14 @@ async def my_chat_member(update: Update, context: CallbackContext):
             text=f"The bot {update.chat_member.new_chat_member.user.first_name} has been kicked."
         )
 
-# Add handlers to the application
+# Add handlers (best to do this before the webhook definition)
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-application.add_handler(ChatMemberHandler(my_chat_member))  # ✅ Corrected chat member update handler
+application.add_handler(ChatMemberHandler(my_chat_member))
 
 @app.route('/webhook', methods=['POST'])
-def webhook():
+async def webhook():  # Make the webhook function async
     """Handles incoming webhook requests from Telegram."""
     try:
         json_data = request.get_json()
@@ -66,23 +65,12 @@ def webhook():
             return jsonify({'error': 'Invalid JSON data'}), 400
 
         update = Update.de_json(json_data, application.bot)
-        
-        # ✅ Fix: Ensure an event loop is running
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        loop.run_until_complete(application.process_update(update))
+
+        # Process the update directly using await.  Much cleaner!
+        await application.process_update(update)
 
         return 'OK', 200
 
     except Exception as e:
-        logger.error(f"Error processing update: {e}")
-        return jsonify({'error': 'Internal Server Error'}), 500
-
-
-if __name__ == '__main__':
-    # Start the Flask app on port 10000
-    app.run(host='0.0.0.0', port=10000)
+        logger.exception("Error processing update:")  # Logs the full traceback
+        return jsonify({'error': 'Internal Server Error
