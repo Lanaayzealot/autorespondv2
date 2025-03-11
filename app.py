@@ -1,7 +1,8 @@
 from flask import Flask, request, jsonify
 import logging
+import asyncio
 from telegram import Update
-from telegram.ext import CommandHandler, MessageHandler, CallbackContext, ApplicationBuilder, filters, ChatMemberUpdated
+from telegram.ext import CommandHandler, MessageHandler, CallbackContext, ApplicationBuilder, filters
 from dotenv import load_dotenv
 import os
 
@@ -44,7 +45,7 @@ async def my_chat_member(update: Update, context: CallbackContext):
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-application.add_handler(MessageHandler(ChatMemberUpdated, my_chat_member))
+application.add_handler(MessageHandler(filters.StatusUpdate.ALL, my_chat_member))  # ✅ FIXED
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -58,7 +59,15 @@ def webhook():
             return jsonify({'error': 'Invalid JSON data'}), 400
 
         update = Update.de_json(json_data, application.bot)
-        application.process_update(update)
+        
+        # ✅ Fix: Ensure an event loop is running
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        loop.run_until_complete(application.process_update(update))
 
         return 'OK', 200
 
