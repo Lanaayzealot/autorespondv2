@@ -32,8 +32,6 @@ if not TOKEN:
     exit(1)  # Exit if the token isn't found
 
 # --- Telegram Bot Handlers ---
-# Define handlers *before* creating the Application.
-
 async def start(update: Update, context: CallbackContext):
     """Handles the /start command."""
     await update.message.reply_text("Hello, I will be responding instead of you when you are away!")
@@ -56,11 +54,9 @@ async def my_chat_member(update: Update, context: CallbackContext):
         )
 
 # --- Application Initialization (Outside of Webhook) ---
-# We create the Application *once* here.
 application: Application = ApplicationBuilder().token(TOKEN).build()
 
 # --- Register Handlers ---
-# Register handlers *before* initializing.
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
@@ -80,42 +76,45 @@ async def webhook():
             return jsonify({'error': 'Invalid JSON data'}), 400
 
         update = Update.de_json(json_data, application.bot)
-
-        # Process the update.  The application is already initialized.
         await application.process_update(update)
-
-        return 'OK', 200  # Acknowledge receipt to Telegram
+        return 'OK', 200
 
     except Exception as e:
-        logger.exception("Error processing update:")  # Log the full traceback
+        logger.exception("Error processing update:")
         return jsonify({'error': 'Internal Server Error'}), 500
 
-# --- Startup and Shutdown Hooks (VERY IMPORTANT) ---
 
-@app.before_first_request
-async def startup_event():
-    """Initializes the Telegram bot application before handling the first request."""
-    logger.info("Initializing Telegram application...")
-    await application.initialize()
-    # Set the webhook URL *here*, after initialization.  This ensures
-    # the bot is ready to receive updates.
-    webhook_url = f'{os.getenv("RENDER_EXTERNAL_URL")}/webhook'  # Use Render's URL
-    await application.bot.set_webhook(url=webhook_url)
-    logger.info(f"Webhook set to: {webhook_url}")
+# --- Startup and Shutdown Hooks (CORRECTED) ---
+
+_first_request_lock = asyncio.Lock()  # Use an asyncio Lock
+_first_request_done = False
+
+@app.before_request
+async def before_request_func():
+    """Initializes the Telegram bot application before the *first* request."""
+    global _first_request_done
+    async with _first_request_lock:  # Acquire the lock
+        if not _first_request_done:
+            logger.info("Initializing Telegram application...")
+            await application.initialize()
+            webhook_url = f'{os.getenv("RENDER_EXTERNAL_URL")}/webhook'
+            await application.bot.set_webhook(url=webhook_url)
+            logger.info(f"Webhook set to: {webhook_url}")
+            _first_request_done = True  # Set the flag
 
 @app.after_request
 async def after_request_callback(response):
-    """Ensures all background tasks are finished before returning the response."""
+    """Ensures all background tasks are finished."""
     await application.update_queue.join()
     return response
 
 @app.teardown_appcontext
 async def shutdown_event(exception=None):
-    """Shuts down the Telegram bot application when the Flask app shuts down."""
+    """Shuts down the Telegram bot application."""
     logger.info("Shutting down Telegram application...")
     await application.shutdown()
 
 # --- Run the App (for development) ---
 if __name__ == '__main__':
-    # For development only! Use Gunicorn or uWSGI in production.
     app.run(host='0.0.0.0', port=10000, debug=False)
+
