@@ -67,14 +67,21 @@ def webhook():
 
         update = Update.de_json(json_data, application.bot)
         
-        # ✅ Fix: Run process_update asynchronously
-        asyncio.create_task(application.process_update(update))
+        # ✅ Fix: Ensure an event loop is running
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        loop.run_until_complete(application.process_update(update))
 
         return 'OK', 200
 
     except Exception as e:
         logger.error(f"Error processing update: {e}")
         return jsonify({'error': 'Internal Server Error'}), 500
+
 
 if __name__ == '__main__':
     # Start the Flask app on port 10000
