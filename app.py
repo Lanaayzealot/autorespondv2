@@ -1,7 +1,7 @@
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, Request
 import logging
 import os
-import asyncio  # <-- Make sure asyncio is imported
+import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackContext, filters
 
@@ -9,8 +9,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Cal
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 OWNER_ID = int(os.getenv('TELEGRAM_OWNER_ID', "0"))  # Default to "0" to prevent NoneType errors
 
-# Initialize Flask app
-app = Flask(__name__)
+# Initialize FastAPI app
+app = FastAPI()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -56,30 +56,29 @@ application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("stop", stop))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, forward_and_reply))
 
-# Route for root URL
-@app.route('/')
-def index():
-    return "Bot is running!", 200
-
 # Webhook route
-@app.route('/webhook', methods=['POST'])
-def webhook():
+@app.post("/webhook")
+async def webhook(request: Request):
     """Handles incoming webhook requests from Telegram."""
-    json_data = request.get_json()
+    json_data = await request.json()
     logger.info(f"Received webhook request: {json_data}")
 
     if not json_data:
-        return jsonify({'error': 'Invalid JSON data'}), 400
+        return {"error": "Invalid JSON data"}, 400
 
     update = Update.de_json(json_data, application.bot)
 
+    # Async function to process the update
     async def process_update():
         await application.initialize()
         await application.process_update(update)
 
-    asyncio.ensure_future(process_update())  # Non-blocking execution
+    # Call the async function non-blocking
+    asyncio.create_task(process_update())
 
-    return 'OK', 200
+    return {"message": "OK"}, 200
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
+# Route for root URL
+@app.get("/")
+async def index():
+    return {"message": "Bot is running!"}
