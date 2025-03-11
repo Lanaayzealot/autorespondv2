@@ -17,9 +17,6 @@ import asyncio
 # Load environment variables
 load_dotenv()
 
-# --- Flask Setup ---
-app = Flask(__name__)
-
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -30,6 +27,7 @@ TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 if not TOKEN:
     logger.error("TELEGRAM_BOT_TOKEN not found in environment variables.")
     exit(1)  # Exit if the token isn't found
+
 
 # --- Telegram Bot Handlers ---
 async def start(update: Update, context: CallbackContext):
@@ -53,68 +51,75 @@ async def my_chat_member(update: Update, context: CallbackContext):
             text=f"The bot {update.chat_member.new_chat_member.user.first_name} has been kicked."
         )
 
-# --- Application Initialization (Moved to a startup event) ---
-application: Application = ApplicationBuilder().token(TOKEN).build()
+# --- Application Factory ---
+def create_app():
+    """Creates and configures the Flask application."""
+    app = Flask(__name__)
 
-# --- Register Handlers ---
-application.add_handler(CommandHandler("start", start))
-application.add_handler(CommandHandler("stop", stop))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-application.add_handler(ChatMemberHandler(my_chat_member))
+    # --- Application Initialization ---
+    application: Application = ApplicationBuilder().token(TOKEN).build()
 
-# --- Webhook Route ---
-@app.route('/webhook', methods=['POST'])
-async def webhook():
-    """Handles incoming webhook requests from Telegram."""
-    try:
-        json_data = request.get_json()
-        logger.info(f"Incoming Update: {json_data}")
+    # --- Register Handlers ---
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("stop", stop))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    application.add_handler(ChatMemberHandler(my_chat_member))
 
-        if not json_data:
-            logger.error("Invalid JSON data received.")
-            return jsonify({'error': 'Invalid JSON data'}), 400
+    # --- Webhook Route ---
+    @app.route('/webhook', methods=['POST'])
+    async def webhook():
+        """Handles incoming webhook requests from Telegram."""
+        try:
+            json_data = request.get_json()
+            logger.info(f"Incoming Update: {json_data}")
 
-        # Use a coroutine to process the update *after* initialization
-        async def process_update_coroutine():
-            update = Update.de_json(json_data, application.bot)
-            await application.process_update(update)
+            if not json_data:
+                logger.error("Invalid JSON data received.")
+                return jsonify({'error': 'Invalid JSON data'}), 400
 
-        # Schedule the coroutine to run in the application's event loop
-        asyncio.create_task(process_update_coroutine())
-        return 'OK', 200
+            # Use a coroutine to process the update *after* initialization
+            async def process_update_coroutine():
+                update = Update.de_json(json_data, application.bot)
+                await application.process_update(update)
 
-    except Exception as e:
-        logger.exception("Error processing update:")
-        return jsonify({'error': 'Internal Server Error'}), 500
+            # Schedule the coroutine to run in the application's event loop
+            asyncio.create_task(process_update_coroutine())
+            return 'OK', 200
+
+        except Exception as e:
+            logger.exception("Error processing update:")
+            return jsonify({'error': 'Internal Server Error'}), 500
+
+    # --- Startup and Shutdown Hooks ---
+    @app.after_request
+    async def after_request_callback(response):
+        """Ensures all background tasks are finished."""
+        await application.update_queue.join()
+        return response
+
+    @app.teardown_appcontext
+    async def shutdown_event(exception=None):
+        """Shuts down the Telegram bot application."""
+        logger.info("Shutting down Telegram application...")
+        await application.shutdown()
 
 
-# --- Startup and Shutdown Hooks (CORRECTED) ---
+    # --- Initialize and Start Telegram Bot ---
+    async def init_telegram_bot():
+        logger.info("Initializing Telegram application...")
+        await application.initialize()
+        webhook_url = f'{os.getenv("RENDER_EXTERNAL_URL")}/webhook'
+        await application.bot.set_webhook(url=webhook_url)
+        logger.info(f"Webhook set to: {webhook_url}")
+        await application.start()
+        logger.info("Application started")
 
-@app.before_serving
-async def before_serving_func():
-    """Initializes the Telegram bot application *before* serving requests."""
-    logger.info("Initializing Telegram application...")
-    await application.initialize()
-    webhook_url = f'{os.getenv("RENDER_EXTERNAL_URL")}/webhook'
-    await application.bot.set_webhook(url=webhook_url)
-    logger.info(f"Webhook set to: {webhook_url}")
-    await application.start() # Start the application's background tasks
-    logger.info("Application started")
+    # Run the initialization in an event loop
+    asyncio.run(init_telegram_bot())
 
-
-@app.after_request
-async def after_request_callback(response):
-    """Ensures all background tasks are finished."""
-    await application.update_queue.join()
-    return response
-
-@app.teardown_appcontext
-async def shutdown_event(exception=None):
-    """Shuts down the Telegram bot application."""
-    logger.info("Shutting down Telegram application...")
-    await application.shutdown()
+    return app
 
 # --- Run the App (for development) ---
 if __name__ == '__main__':
+    app = create_app()  # Create the app instance
     app.run(host='0.0.0.0', port=10000, debug=False)
-
