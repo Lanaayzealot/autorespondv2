@@ -1,6 +1,15 @@
+# Environment & Request Handling
 python-dotenv
 requests
-gunicorn
-python-telegram-bot==20.0
+aiohttp
+
+# Flask & Web Server
+Flask==2.2.5
 flask[async]
 flask-cors
+
+# Telegram Bot API
+python-telegram-bot==20.0
+
+# Production Server
+uvicorn
