@@ -9,7 +9,7 @@ flask[async]
 flask-cors
 
 # Telegram Bot API
-python-telegram-bot==20.0
+python-telegram-bot==21.2.0
 
 # Production Server
 uvicorn
