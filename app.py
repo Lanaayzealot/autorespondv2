@@ -60,14 +60,16 @@ def webhook():
 
         update = Update.de_json(json_data, application.bot)
         
+        async def process_update():
+            await application.initialize()  # ✅ Ensure proper initialization
+            await application.process_update(update)
+
         # ✅ Fix: Ensure an event loop is running
         try:
             loop = asyncio.get_running_loop()
+            task = loop.create_task(process_update())  # Run as a background task
         except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        loop.run_until_complete(application.process_update(update))
+            asyncio.run(process_update())  # Run synchronously if no event loop exists
 
         return 'OK', 200
 
