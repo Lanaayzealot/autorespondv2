@@ -7,7 +7,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Cal
 
 # Retrieve environment variables
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-OWNER_ID = int(os.getenv('TELEGRAM_OWNER_ID', "0"))  # Default to "0" to prevent NoneType errors
+OWNER_ID = 7122508724  # Your Telegram ID
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -40,16 +40,17 @@ async def forward_and_reply(update: Update, context: CallbackContext):
     if not bot_running:
         return  # Ignore messages if the bot is stopped
 
-    user_id = update.message.from_user.id
-    user_name = update.message.from_user.username or update.message.from_user.first_name
-    text = update.message.text
+    if update.message:  # Ensure message exists
+        user_id = update.message.chat.id  # Get sender's chat ID
+        user_name = update.message.from_user.username or update.message.from_user.first_name
+        text = update.message.text
 
-    # Forward the message to the bot owner
-    forward_text = f"📩 New message from @{user_name} ({user_id}):\n{text}"
-    await context.bot.send_message(chat_id=OWNER_ID, text=forward_text)
+        # Forward the message to you (OWNER_ID: 7122508724)
+        forward_text = f"📩 New message from @{user_name} ({user_id}):\n{text}"
+        await context.bot.send_message(chat_id=OWNER_ID, text=forward_text)
 
-    # Reply to the sender with the away message
-    await update.message.reply_text("Hi, I am away at the moment, I will get back to you ASAP.")
+        # Reply to the sender
+        await context.bot.send_message(chat_id=user_id, text="Hi, I am away at the moment, I will get back to you ASAP.")
 
 # Add handlers
 application.add_handler(CommandHandler("start", start))
