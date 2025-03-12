@@ -67,17 +67,19 @@ async def webhook(request: Request):
     if not json_data:
         return {"error": "Invalid JSON data"}, 400
 
+    if application.bot is None:  # Ensure bot is initialized
+        await application.initialize()
+
     update = Update.de_json(json_data, application.bot)
 
     # Async function to process the update
     async def process_update():
-        await application.initialize()
         await application.process_update(update)
 
-    # Call the async function non-blocking
-    asyncio.create_task(process_update())
+    asyncio.create_task(process_update())  # Process in background
 
     return {"message": "OK"}, 200
+
 
 # Route for root URL
 @app.get("/")
