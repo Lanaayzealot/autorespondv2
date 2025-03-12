@@ -42,10 +42,14 @@ async def stop(update: Update, context: CallbackContext):
 async def forward_and_reply(update: Update, context: CallbackContext):
     global bot_running
     if not bot_running or not update.message or not update.message.text:
-        return  # Ignore messages if bot is stopped or message is invalid
+        return  # Ignore messages if bot is stopped or invalid
+
+    user = update.message.from_user
+    if not user:  # Handle cases where from_user is None
+        return
 
     user_id = update.message.chat.id
-    user_name = update.message.from_user.username or update.message.from_user.first_name
+    user_name = user.username or user.first_name or "Unknown User"
     text = update.message.text
 
     # Forward to owner
