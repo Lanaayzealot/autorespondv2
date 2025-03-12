@@ -37,20 +37,20 @@ async def stop(update: Update, context: CallbackContext):
 # Message handler for forwarding and replying
 async def forward_and_reply(update: Update, context: CallbackContext):
     global bot_running
-    if not bot_running:
-        return  # Ignore messages if the bot is stopped
+    if not bot_running or not update.message or not update.message.text:
+        return  # Ignore messages if bot is stopped or message is invalid
 
-    if update.message:  # Ensure message exists
-        user_id = update.message.chat.id  # Get sender's chat ID
-        user_name = update.message.from_user.username or update.message.from_user.first_name
-        text = update.message.text
+    user_id = update.message.chat.id
+    user_name = update.message.from_user.username or update.message.from_user.first_name
+    text = update.message.text
 
-        # Forward the message to you (OWNER_ID: 7122508724)
-        forward_text = f"📩 New message from @{user_name} ({user_id}):\n{text}"
-        await context.bot.send_message(chat_id=OWNER_ID, text=forward_text)
+    # Forward to owner
+    forward_text = f"📩 New message from @{user_name} ({user_id}):\n{text}"
+    await context.bot.send_message(chat_id=OWNER_ID, text=forward_text)
 
-        # Reply to the sender
-        await context.bot.send_message(chat_id=user_id, text="Hi, I am away at the moment, I will get back to you ASAP.")
+    # Reply to sender
+    await context.bot.send_message(chat_id=user_id, text="Hi, I am away at the moment, I will get back to you ASAP.")
+
 
 # Add handlers
 application.add_handler(CommandHandler("start", start))
