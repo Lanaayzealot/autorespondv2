@@ -7,6 +7,10 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Cal
 
 # Retrieve environment variables
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+if not TOKEN:
+    logger.error("Error: TELEGRAM_BOT_TOKEN is not set!")
+    raise ValueError("TELEGRAM_BOT_TOKEN is missing. Check your environment variables.")
+
 OWNER_ID = 7122508724  # Your Telegram ID
 
 # Initialize FastAPI app
