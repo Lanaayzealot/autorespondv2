@@ -75,18 +75,18 @@ async def webhook(request: Request):
     if not json_data:
         return {"error": "Invalid JSON data"}, 400
 
-    # Ensure bot is initialized
-    if application.bot is None:
+    # Initialize the application if it has not been initialized
+    if not application._initialized:
         await application.initialize()
-        await application.start()
 
-    # Convert incoming JSON to Telegram Update
+    # Convert incoming JSON to a Telegram Update object
     update = Update.de_json(json_data, application.bot)
 
     # Process the update asynchronously
     asyncio.create_task(application.process_update(update))
 
-    return {"message": "OK"}, 200
+    return {"message": " EVERYTHING IS OK"}, 200
+
 
 
 
