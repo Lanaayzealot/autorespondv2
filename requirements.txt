@@ -6,4 +6,5 @@ flask[async]
 flask-cors
 python-telegram-bot==21.2.0
 fastapi
-uvicorn[gunicorn]
+uvicorn
+gunicorn
